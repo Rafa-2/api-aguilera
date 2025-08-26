@@ -8,6 +8,8 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
+console.log('Server OK');
+
 // Middleware - CORS configurado para permitir cualquier origen
 app.use(cors({
     origin: '*',
@@ -227,7 +229,12 @@ app.get('/', (req, res) => {
 
 // Iniciar servidor
 app.listen(port, () => {
-    console.log(`Servidor API ejecutándose en http://localhost:${port}`);
+    console.log('Listening');
+    if (process.env.NODE_ENV === 'production') {
+        console.log('Servidor API ejecutándose en https://api-aguilera.vercel.app');
+    } else {
+        console.log(`Servidor API ejecutándose en http://localhost:${port}`);
+    }
 });
 
 module.exports = app;
