@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta de Datos HMI</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .card { border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; border-radius: 5px; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <h1>Consulta de Datos HMI</h1>
+    
+    <div class="card">
+        <h2>Opciones de Descarga</h2>
+        <button onclick="descargarCSV(8)">Descargar últimas 8 horas (CSV)</button>
+        <button onclick="descargarCSV(24)">Descargar últimas 24 horas (CSV)</button>
+        <button onclick="descargarTodoCSV()">Descargar toda la base de datos (CSV)</button>
+    </div>
+
+    <div class="card">
+        <h2>Consultar Datos</h2>
+        <div>
+            <label>Últimas horas: </label>
+            <input type="number" id="horas" value="8" min="1">
+            <button onclick="consultarDatos()">Consultar</button>
+        </div>
+        <div id="resultado"></div>
+    </div>
+
+    <div class="card">
+        <h2>Estadísticas</h2>
+        <button onclick="obtenerEstadisticas()">Obtener Estadísticas</button>
+        <div id="estadisticas"></div>
+    </div>
+
+    <script>
+        async function descargarCSV(horas) {
+            window.open(`/api/datos/csv?horas=${horas}`, '_blank');
+        }
+
+        async function descargarTodoCSV() {
+            window.open('/api/datos/csv?todas=true', '_blank');
+        }
+
+        async function consultarDatos() {
+            const horas = document.getElementById('horas').value;
+            try {
+                const response = await fetch(`/api/datos?horas=${horas}`);
+                const data = await response.json();
+                
+                let tableHtml = `<h3>${data.total} registros encontrados</h3>`;
+                tableHtml += `<table>
+                    <tr>
+                        <th>ID</th>
+                        <th>Fecha</th>
+                        <th>OA Brute</th>
+                        <th>Boensidad</th>
+                        <th>SSW</th>
+                        <th>A Neto</th>
+                        <th>Temp Gas</th>
+                        <th>Densidad Diluente</th>
+                        <th>Drive Gain Gas</th>
+                        <th>Column1</th>
+                    </tr>`;
+                
+                data.datos.forEach(row => {
+                    tableHtml += `<tr>
+                        <td>${row.id}</td>
+                        <td>${new Date(row.fecha_creacion).toLocaleString()}</td>
+                        <td>${row.oa_brute}</td>
+                        <td>${row.boensidad}</td>
+                        <td>${row.ssw}</td>
+                        <td>${row.a_neto}</td>
+                        <td>${row.temp_gas}</td>
+                        <td>${row.densidad_diluente}</td>
+                        <td>${row.drive_gain_gas}</td>
+                        <td>${row.column1}</td>
+                    </tr>`;
+                });
+                
+                tableHtml += '</table>';
+                document.getElementById('resultado').innerHTML = tableHtml;
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al consultar datos');
+            }
+        }
+
+        async function obtenerEstadisticas() {
+            try {
+                const response = await fetch('/api/estadisticas');
+                const data = await response.json();
+                
+                let statsHtml = `<p><strong>Total de registros:</strong> ${data.total_registros}</p>
+                <p><strong>Fecha más antigua:</strong> ${new Date(data.fecha_mas_antigua).toLocaleString()}</p>
+                <p><strong>Fecha más reciente:</strong> ${new Date(data.fecha_mas_reciente).toLocaleString()}</p>
+                <p><strong>Temperatura promedio:</strong> ${data.temperatura_promedio}</p>
+                <p><strong>Drive Gain promedio:</strong> ${data.drive_gain_promedio}</p>`;
+                
+                document.getElementById('estadisticas').innerHTML = statsHtml;
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al obtener estadísticas');
+            }
+        }
+    </script>
+</body>
+</html>
