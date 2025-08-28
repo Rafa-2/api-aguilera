@@ -202,20 +202,117 @@ app.get('/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// Simple API status endpoint for Lua
+app.get('/api/status', (req, res) => {
+    res.json({ message: 'API OK' });
+});
+
 // Test database connection endpoint
 app.get('/api/test-db', async (req, res) => {
+    const acceptsHtml = req.headers.accept && req.headers.accept.includes('text/html');
+    
     try {
         const result = await pool.query('SELECT NOW() as current_time');
-        res.json({ 
-            status: 'Database connected successfully', 
-            time: result.rows[0].current_time 
-        });
+        
+        if (acceptsHtml) {
+            res.send(`
+                <html>
+                    <head>
+                        <title>Database Test</title>
+                        <style>
+                            body { 
+                                font-family: Arial, sans-serif; 
+                                display: flex; 
+                                justify-content: center; 
+                                align-items: center; 
+                                height: 100vh; 
+                                margin: 0; 
+                                background-color: #f0f0f0; 
+                            }
+                            .message { 
+                                padding: 20px; 
+                                border-radius: 10px; 
+                                text-align: center; 
+                                font-size: 24px; 
+                                font-weight: bold; 
+                            }
+                            .success { 
+                                background-color: #d4edda; 
+                                color: #155724; 
+                                border: 2px solid #c3e6cb; 
+                            }
+                            .time { 
+                                font-size: 16px; 
+                                margin-top: 10px; 
+                                font-weight: normal; 
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="message success">
+                            ✅ Database connected successfully
+                            <div class="time">Connected at: ${result.rows[0].current_time}</div>
+                        </div>
+                    </body>
+                </html>
+            `);
+        } else {
+            res.json({ 
+                status: 'Database connected successfully', 
+                time: result.rows[0].current_time 
+            });
+        }
     } catch (error) {
         console.error('Database connection error:', error);
-        res.status(500).json({ 
-            error: 'Database connection failed', 
-            details: error.message 
-        });
+        
+        if (acceptsHtml) {
+            res.status(500).send(`
+                <html>
+                    <head>
+                        <title>Database Test</title>
+                        <style>
+                            body { 
+                                font-family: Arial, sans-serif; 
+                                display: flex; 
+                                justify-content: center; 
+                                align-items: center; 
+                                height: 100vh; 
+                                margin: 0; 
+                                background-color: #f0f0f0; 
+                            }
+                            .message { 
+                                padding: 20px; 
+                                border-radius: 10px; 
+                                text-align: center; 
+                                font-size: 24px; 
+                                font-weight: bold; 
+                            }
+                            .error { 
+                                background-color: #f8d7da; 
+                                color: #721c24; 
+                                border: 2px solid #f5c6cb; 
+                            }
+                            .details { 
+                                font-size: 16px; 
+                                margin-top: 10px; 
+                                font-weight: normal; 
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="message error">
+                            ❌ Database connection failed
+                            <div class="details">Error: ${error.message}</div>
+                        </div>
+                    </body>
+                </html>
+            `);
+        } else {
+            res.status(500).json({ 
+                error: 'Database connection failed', 
+                details: error.message 
+            });
+        }
     }
 });
 
