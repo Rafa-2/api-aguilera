@@ -22,11 +22,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Configuración de PostgreSQL
 const pool = new Pool({
-    user: process.env.DB_USER || 'tu_usuario',
-    host: process.env.DB_HOST || 'localhost',
-    database: process.env.DB_NAME || 'hmi_data',
-    password: process.env.DB_PASSWORD || 'tu_contraseña',
-    port: process.env.DB_PORT || 5432,
+    connectionString: process.env.DATABASE_URL || process.env.POSTGRES_URL,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
