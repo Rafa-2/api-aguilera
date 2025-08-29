@@ -41,17 +41,17 @@
 
     <script>
         async function descargarCSV(horas) {
-            window.open(`/api/datos/csv?horas=${horas}`, '_blank');
+            window.open(`/api-aguilera/api/datos/csv?horas=${horas}`, '_blank');
         }
 
         async function descargarTodoCSV() {
-            window.open('/api/datos/csv?todas=true', '_blank');
+            window.open('/api-aguilera/api/datos/csv?todas=true', '_blank');
         }
 
         async function consultarDatos() {
             const horas = document.getElementById('horas').value;
             try {
-                const response = await fetch(`/api/datos?horas=${horas}`);
+                const response = await fetch(`/api-aguilera/api/datos?horas=${horas}`);
                 const data = await response.json();
                 
                 let tableHtml = `<h3>${data.total} registros encontrados</h3>`;
@@ -59,28 +59,28 @@
                     <tr>
                         <th>ID</th>
                         <th>Fecha</th>
-                        <th>OA Brute</th>
-                        <th>Boensidad</th>
-                        <th>SSW</th>
-                        <th>A Neto</th>
-                        <th>Temp Gas</th>
-                        <th>Densidad Diluente</th>
+                        <th>Caudal Másico</th>
+                        <th>Caudal Bruto</th>
+                        <th>Densidad</th>
+                        <th>BSW</th>
+                        <th>Caudal Neto Oil</th>
+                        <th>Temperatura</th>
+                        <th>Presión Gas</th>
                         <th>Drive Gain Gas</th>
-                        <th>Column1</th>
                     </tr>`;
                 
                 data.datos.forEach(row => {
                     tableHtml += `<tr>
                         <td>${row.id}</td>
                         <td>${new Date(row.fecha_creacion).toLocaleString()}</td>
-                        <td>${row.oa_brute}</td>
-                        <td>${row.boensidad}</td>
-                        <td>${row.ssw}</td>
-                        <td>${row.a_neto}</td>
-                        <td>${row.temp_gas}</td>
-                        <td>${row.densidad_diluente}</td>
-                        <td>${row.drive_gain_gas}</td>
-                        <td>${row.column1}</td>
+                        <td>${row.qm_1}</td>
+                        <td>${row.q_bruto_1}</td>
+                        <td>${row.densidad_1}</td>
+                        <td>${row.bsw_1}</td>
+                        <td>${row.q_net_oil_1}</td>
+                        <td>${row.temp_1}</td>
+                        <td>${row.pres_f_gas_1}</td>
+                        <td>${row.driv_gain_gas_1}</td>
                     </tr>`;
                 });
                 
@@ -94,14 +94,14 @@
 
         async function obtenerEstadisticas() {
             try {
-                const response = await fetch('/api/estadisticas');
+                const response = await fetch('/api-aguilera/api/estadisticas');
                 const data = await response.json();
                 
                 let statsHtml = `<p><strong>Total de registros:</strong> ${data.total_registros}</p>
                 <p><strong>Fecha más antigua:</strong> ${new Date(data.fecha_mas_antigua).toLocaleString()}</p>
                 <p><strong>Fecha más reciente:</strong> ${new Date(data.fecha_mas_reciente).toLocaleString()}</p>
                 <p><strong>Temperatura promedio:</strong> ${data.temperatura_promedio}</p>
-                <p><strong>Drive Gain promedio:</strong> ${data.drive_gain_promedio}</p>`;
+                <p><strong>Drive Gain Gas promedio:</strong> ${data.drive_gain_gas_promedio}</p>`;
                 
                 document.getElementById('estadisticas').innerHTML = statsHtml;
             } catch (error) {

@@ -32,9 +32,9 @@ const pool = mysql.createPool({
     queueLimit: 0,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
-
+const API_PREFIX = '/api_aguilera';
 // Endpoint para recibir datos del script Lua
-app.post('/api/datos', async (req, res) => {
+app.post(`${API_PREFIX}/api/datos`, async (req, res) => {
     try {
         const {
             qm_1,
@@ -104,7 +104,7 @@ app.post('/api/datos', async (req, res) => {
 });
 
 // Endpoint para consultar datos con filtros
-app.get('/api/datos', async (req, res) => {
+app.get(`${API_PREFIX}/api/datos`, async (req, res) => {
     try {
         const { horas, limite, pagina } = req.query;
         let query = 'SELECT * FROM mediciones';
@@ -153,7 +153,7 @@ app.get('/api/datos', async (req, res) => {
 });
 
 // Endpoint para descargar datos en CSV
-app.get('/api/datos/csv', async (req, res) => {
+app.get(`${API_PREFIX}/api/datos/csv`, async (req, res) => {
     try {
         const { horas, todas } = req.query;
         let query = 'SELECT * FROM mediciones';
@@ -214,7 +214,7 @@ app.get('/api/datos/csv', async (req, res) => {
 });
 
 // Endpoint para obtener estadísticas básicas
-app.get('/api/estadisticas', async (req, res) => {
+app.get(`${API_PREFIX}/api/estadisticas`, async (req, res) => {
     try {
         const query = `
             SELECT 
@@ -238,17 +238,17 @@ app.get('/api/estadisticas', async (req, res) => {
 });
 
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get(`${API_PREFIX}/health`, (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
 // Simple API status endpoint for Lua
-app.get('/api/status', (req, res) => {
+app.get(`${API_PREFIX}/api/status`, (req, res) => {
     res.json({ message: 'API OK' });
 });
 
 // Test database connection endpoint
-app.get('/api/test-db', async (req, res) => {
+app.get(`${API_PREFIX}/api/test-db`, async (req, res) => {
     const acceptsHtml = req.headers.accept && req.headers.accept.includes('text/html');
     
     try {
@@ -360,7 +360,7 @@ app.get('/api/test-db', async (req, res) => {
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Servir interfaz web simple
-app.get('/', (req, res) => {
+app.get(`${API_PREFIX}`, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
