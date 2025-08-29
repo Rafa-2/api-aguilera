@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { Pool } = require('pg');
+const mysql = require('mysql2/promise');
 const { stringify } = require('csv-stringify');
 const fs = require('fs');
 const path = require('path');
@@ -20,9 +20,16 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Configuración de PostgreSQL
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL || process.env.POSTGRES_URL,
+// Configuración de MySQL
+const pool = mysql.createPool({
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'hmi_data',
+    port: process.env.DB_PORT || 3306,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
@@ -30,40 +37,65 @@ const pool = new Pool({
 app.post('/api/datos', async (req, res) => {
     try {
         const {
-            oa_brute,
-            boensidad,
-            ssw,
-            a_neto,
-            temp_gas,
-            densidad_diluente,
-            drive_gain_gas,
-            column1
+            qm_1,
+            q_bruto_1,
+            densidad_1,
+            bsw_1,
+            q_net_oil_1,
+            q_agua_1,
+            temp_1,
+            total_oil_1,
+            pres_f_liq_1,
+            driv_gain_liq_1,
+            driv_gain_gas_1,
+            pres_f_gas_1,
+            qv_1,
+            temp_cg_1,
+            d_diluente_1,
+            apr_valv_1,
+            sept_valv_1
         } = req.body;
 
         const query = `
             INSERT INTO mediciones 
-            (oa_brute, boensidad, ssw, a_neto, temp_gas, densidad_diluente, drive_gain_gas, column1)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            RETURNING *
+            (qm_1, q_bruto_1, densidad_1, bsw_1, q_net_oil_1, q_agua_1, temp_1, total_oil_1, 
+             pres_f_liq_1, driv_gain_liq_1, driv_gain_gas_1, pres_f_gas_1, qv_1, temp_cg_1, 
+             d_diluente_1, apr_valv_1, sept_valv_1)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const values = [
-            oa_brute || 0,
-            boensidad || 0,
-            ssw || 0,
-            a_neto || 0,
-            temp_gas || 0,
-            densidad_diluente || 0,
-            drive_gain_gas || 0,
-            column1 || 0
+            qm_1 || 0,
+            q_bruto_1 || 0,
+            densidad_1 || 0,
+            bsw_1 || 0,
+            q_net_oil_1 || 0,
+            q_agua_1 || 0,
+            temp_1 || 0,
+            total_oil_1 || 0,
+            pres_f_liq_1 || 0,
+            driv_gain_liq_1 || 0,
+            driv_gain_gas_1 || 0,
+            pres_f_gas_1 || 0,
+            qv_1 || 0,
+            temp_cg_1 || 0,
+            d_diluente_1 || 0,
+            apr_valv_1 || 0,
+            sept_valv_1 || 0
         ];
 
-        const result = await pool.query(query, values);
+        const [result] = await pool.execute(query, values);
         
-        console.log('Datos insertados:', result.rows[0]);
+        // Obtener el registro insertado
+        const [insertedRecord] = await pool.execute(
+            'SELECT * FROM mediciones WHERE id = ?',
+            [result.insertId]
+        );
+        
+        console.log('Datos insertados:', insertedRecord[0]);
         res.status(201).json({
             message: 'Datos almacenados correctamente',
-            data: result.rows[0]
+            data: insertedRecord[0]
         });
     } catch (error) {
         console.error('Error al insertar datos:', error);
@@ -82,7 +114,7 @@ app.get('/api/datos', async (req, res) => {
 
         // Filtrar por últimas X horas
         if (horas) {
-            conditions.push(`fecha_creacion >= NOW() - INTERVAL $${counter} hour`);
+            conditions.push(`fecha_creacion >= DATE_SUB(NOW(), INTERVAL ? HOUR)`);
             values.push(parseInt(horas));
             counter++;
         }
@@ -97,7 +129,7 @@ app.get('/api/datos', async (req, res) => {
 
         // Aplicar límite si se especifica
         if (limite) {
-            query += ` LIMIT $${counter}`;
+            query += ` LIMIT ?`;
             values.push(parseInt(limite));
             counter++;
         }
@@ -105,14 +137,14 @@ app.get('/api/datos', async (req, res) => {
         // Aplicar paginación si se especifica
         if (pagina && limite) {
             const offset = (parseInt(pagina) - 1) * parseInt(limite);
-            query += ` OFFSET $${counter}`;
+            query += ` OFFSET ?`;
             values.push(offset);
         }
 
-        const result = await pool.query(query, values);
+        const [rows] = await pool.execute(query, values);
         res.json({
-            total: result.rowCount,
-            datos: result.rows
+            total: rows.length,
+            datos: rows
         });
     } catch (error) {
         console.error('Error al consultar datos:', error);
@@ -129,7 +161,7 @@ app.get('/api/datos/csv', async (req, res) => {
 
         // Filtrar por últimas X horas o obtener todas
         if (horas) {
-            query += ' WHERE fecha_creacion >= NOW() - INTERVAL $1 hour ORDER BY fecha_creacion DESC';
+            query += ' WHERE fecha_creacion >= DATE_SUB(NOW(), INTERVAL ? HOUR) ORDER BY fecha_creacion DESC';
             values.push(parseInt(horas));
         } else if (todas === 'true') {
             query += ' ORDER BY fecha_creacion DESC';
@@ -139,22 +171,31 @@ app.get('/api/datos/csv', async (req, res) => {
             });
         }
 
-        const result = await pool.query(query, values);
+        const [result] = await pool.execute(query, values);
         
         // Convertir a CSV
-        stringify(result.rows, {
+        stringify(result, {
             header: true,
             columns: {
                 id: 'ID',
                 fecha_creacion: 'Fecha Creación',
-                oa_brute: 'OA Brute',
-                boensidad: 'Boensidad',
-                ssw: 'SSW',
-                a_neto: 'A Neto',
-                temp_gas: 'Temp Gas',
-                densidad_diluente: 'Densidad Diluente',
-                drive_gain_gas: 'Drive Gain Gas',
-                column1: 'Column1'
+                qm_1: 'Caudal Másico',
+                q_bruto_1: 'Caudal Bruto',
+                densidad_1: 'Densidad',
+                bsw_1: 'BSW',
+                q_net_oil_1: 'Caudal Neto Oil',
+                q_agua_1: 'Caudal Agua',
+                temp_1: 'Temperatura',
+                total_oil_1: 'Total Oil',
+                pres_f_liq_1: 'Presión Flujo Líquido',
+                driv_gain_liq_1: 'Drive Gain Líquido',
+                driv_gain_gas_1: 'Drive Gain Gas',
+                pres_f_gas_1: 'Presión Flujo Gas',
+                qv_1: 'Caudal Volumétrico',
+                temp_cg_1: 'Temperatura Gas',
+                d_diluente_1: 'Densidad Diluente',
+                apr_valv_1: 'Apertura Válvula',
+                sept_valv_1: 'Válvula Separadora'
             }
         }, (err, output) => {
             if (err) {
@@ -180,13 +221,16 @@ app.get('/api/estadisticas', async (req, res) => {
                 COUNT(*) as total_registros,
                 MIN(fecha_creacion) as fecha_mas_antigua,
                 MAX(fecha_creacion) as fecha_mas_reciente,
-                AVG(temp_gas) as temperatura_promedio,
-                AVG(drive_gain_gas) as drive_gain_promedio
+                AVG(temp_1) as temperatura_promedio,
+                AVG(driv_gain_gas_1) as drive_gain_gas_promedio,
+                AVG(q_bruto_1) as caudal_bruto_promedio,
+                AVG(densidad_1) as densidad_promedio,
+                AVG(bsw_1) as bsw_promedio
             FROM mediciones
         `;
 
-        const result = await pool.query(query);
-        res.json(result.rows[0]);
+        const [result] = await pool.execute(query);
+        res.json(result[0]);
     } catch (error) {
         console.error('Error al obtener estadísticas:', error);
         res.status(500).json({ error: 'Error interno del servidor' });
@@ -208,7 +252,7 @@ app.get('/api/test-db', async (req, res) => {
     const acceptsHtml = req.headers.accept && req.headers.accept.includes('text/html');
     
     try {
-        const result = await pool.query('SELECT NOW() as current_time');
+        const [result] = await pool.execute('SELECT NOW() as current_time');
         
         if (acceptsHtml) {
             res.send(`
@@ -247,7 +291,7 @@ app.get('/api/test-db', async (req, res) => {
                     <body>
                         <div class="message success">
                             ✅ Database connected successfully
-                            <div class="time">Connected at: ${result.rows[0].current_time}</div>
+                            <div class="time">Connected at: ${result[0].current_time}</div>
                         </div>
                     </body>
                 </html>
@@ -255,7 +299,7 @@ app.get('/api/test-db', async (req, res) => {
         } else {
             res.json({ 
                 status: 'Database connected successfully', 
-                time: result.rows[0].current_time 
+                time: result[0].current_time 
             });
         }
     } catch (error) {
@@ -323,11 +367,8 @@ app.get('/', (req, res) => {
 // Iniciar servidor
 app.listen(port, () => {
     console.log('Listening');
-    if (process.env.NODE_ENV === 'production') {
-        console.log('Servidor API ejecutándose en https://api-aguilera.vercel.app');
-    } else {
-        console.log(`Servidor API ejecutándose en http://localhost:${port}`);
-    }
+    console.log(`Servidor API ejecutándose en http://localhost:${port}`);
+    console.log('Configurado para servidor privado de Namecheap');
 });
 
 module.exports = app;
